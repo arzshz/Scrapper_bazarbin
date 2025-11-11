@@ -8,12 +8,68 @@ from dateutil.relativedelta import relativedelta
 tehran_tz = pytz.timezone("Asia/Tehran")
 
 
+def parse_date(date_str: str) -> datetime.date:
+    date_str = persian_to_english(date_str.strip())
+    date_str = date_str.replace(" ", "")
+    year, month, day = None, None, None
+    relative_date = ["Y", "M", "D", "NOW"]
+    for d in relative_date:
+        if d in date_str or date_str == "0":
+            year, month, day = parse_relative_date(date_str)
+            break
+    if not (year or month or day):
+        sep = ["/", "-"]
+        for s in sep:
+            if s in date_str:
+                year, month, day = map(int, date_str.split(s))
+                is_digit = "N"
+                break
+        else:
+            is_digit = "T" if date_str.isdigit() else "F"
+
+        if is_digit == "F" or (is_digit == "T" and len(date_str) < 6):
+            raise ValueError("❌ Invalid date format.")
+        elif is_digit == "T":
+            year = int(date_str[:4])
+            month, day = parse_month_day(date_str[4:])
+
+    if 1394 < year < 1425 and 0 < month < 13 and 0 < day < 32:
+        jdate = jdatetime.date(year, month, day).togregorian()
+        return jdate
+    elif 2014 < year < 2045 and 0 < month < 13 and 0 < day < 32:
+        date_obj = dt(year, month, day).date()
+        return date_obj
+    else:
+        raise ValueError("❌ Invalid date format.")
+
+
 def persian_to_english(text):
     """Convert Persian/Farsi numbers to English"""
     persian_numbers = "۰۱۲۳۴۵۶۷۸۹"
     english_numbers = "0123456789"
     translation_table = str.maketrans(persian_numbers, english_numbers)
     return text.translate(translation_table)
+
+
+def parse_relative_date(s: str):
+    """
+    Parse a string like '15D2Y34M' or '39M-4Y2M' into (year, month, day) in Tehran timezone.
+    Special cases:
+      - '0' or 'NOW' => today's date
+    Units:
+      Y = years, M = months, D = days
+    """
+    tehran = pytz.timezone("Asia/Tehran")
+    now = dt.now(tehran)
+    if s == "0" or s == "NOW":
+        return now.year, now.month, now.day
+    years, months, days = get_date(s)
+    if years != 0 or months != 0 or days != 0:
+        delta = relativedelta(years=years, months=months, days=days)
+        target = now + delta
+        return target.year, target.month, target.day
+    else:
+        raise ValueError("❌ Invalid date format.")
 
 
 def parse_month_day(month_day: str):
@@ -52,27 +108,6 @@ def parse_month_day(month_day: str):
     return month, day
 
 
-def parse_relative_date(s: str):
-    """
-    Parse a string like '15D2Y34M' or '39M-4Y2M' into (year, month, day) in Tehran timezone.
-    Special cases:
-      - '0' or 'NOW' => today's date
-    Units:
-      Y = years, M = months, D = days
-    """
-    tehran = pytz.timezone("Asia/Tehran")
-    now = dt.now(tehran)
-    if s == "0" or s == "NOW":
-        return now.year, now.month, now.day
-    years, months, days = get_date(s)
-    if years != 0 or months != 0 or days != 0:
-        delta = relativedelta(years=years, months=months, days=days)
-        target = now + delta
-        return target.year, target.month, target.day
-    else:
-        raise ValueError("❌ Invalid date format.")
-
-
 def get_date(s: str):
     num = ""
     years = months = days = 0
@@ -95,42 +130,88 @@ def get_date(s: str):
     return years, months, days
 
 
-def parse_date(date_str: str) -> datetime.date:
-    date_str = persian_to_english(date_str.strip())
-    date_str = date_str.replace(" ", "")
-    year, month, day = None, None, None
-    relative_date = ["Y", "M", "D", "NOW"]
-    for d in relative_date:
-        if d in date_str or date_str == "0":
-            year, month, day = parse_relative_date(date_str)
-            break
-    if not (year or month or day):
-        sep = ["/", "-"]
-        for s in sep:
-            if s in date_str:
-                year, month, day = map(int, date_str.split(s))
-                is_digit = "N"
-                break
+def parse_date_and_time(input_str: str) -> datetime.datetime:
+    """
+    Parse a string combining date and time into a datetime object.
+
+    Supported formats:
+      - Date formats: YYYYMMDD, YYYY/MM/DD, YYYY-MM-DD, YYYY MM DD, -XY-YM-ZD
+      - Time formats: HH:MM, HHMM, HH MM, -Xh-Ym, -Xh -Ym
+      - Combined: date followed by time, separated by space
+      - Time only: just the time part (uses today's date)
+
+    Examples:
+      - "14040819 12:35"
+      - "1404/08/19 -2h-10m"
+      - "-1Y-2M-3D 12:35"
+      - "12:35"
+      - "-2h-10m"
+    """
+    input_str = persian_to_english(input_str.strip())
+
+    # Split by spaces to separate date and time parts
+    parts = input_str.split()
+
+    # Check if input is time-only
+    if len(parts) == 1 and is_time(parts[0]):
+        # Time only - use today's date
+        return parse_time(input_str)
+    elif len(parts) == 2 and is_time(" ".join(parts)):
+        # It's time-only like "12 35"
+        return parse_time(" ".join(parts))
+
+    # Not time-only, so parse as date + time
+    date_part = parts[0]
+    time_part = " ".join(parts[1:])
+    now = dt.now(tehran_tz)
+
+    date_obj = parse_date(date_part)
+    date_obj = dt.combine(date_obj, now.time())
+
+    if time_part:
+        time_obj = parse_time(time_part)
+        is_relative = is_relative_time(time_part)
+        if is_relative:
+            delta = relativedelta(time_obj, now)
+            result = date_obj + delta
         else:
-            is_digit = "T" if date_str.isdigit() else "F"
-
-        if is_digit == "F" or (is_digit == "T" and len(date_str) < 6):
-            raise ValueError("❌ Invalid date format.")
-        elif is_digit == "T":
-            year = int(date_str[:4])
-            month, day = parse_month_day(date_str[4:])
-
-    if 1394 < year < 1425 and 0 < month < 13 and 0 < day < 32:
-        jdate = jdatetime.date(year, month, day).togregorian()
-        return jdate
-    elif 2014 < year < 2045 and 0 < month < 13 and 0 < day < 32:
-        date_obj = dt(year, month, day).date()
-        return date_obj
+            result = date_obj.replace(
+                hour=time_obj.hour, minute=time_obj.minute, second=0, microsecond=0
+            )
     else:
-        raise ValueError("❌ Invalid date format.")
+        result = date_obj.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Add Tehran timezone
+    result = tehran_tz.localize(result)
+
+    return result
 
 
-def parse_time(time_str: str) -> datetime.time:
+def is_time(s: str) -> bool:
+    # must not contain any other alphabetic characters
+    for ch in s:
+        if ch.isalpha() and ch not in ("h", "m"):
+            return False
+
+    parts = s.split()
+    if len(parts) == 1 and ("h" in parts[0] or "m" in parts[0]):
+        return True
+    elif len(parts) == 2 and ("h" in parts[0] or "m" in parts[0]):
+        return True
+
+    if ":" in s and len(s.strip()) < 6:
+        try:
+            hours, minutes = map(int, s.split(":"))
+            return True
+        except ValueError:
+            return False
+
+    if len(s.replace(" ", "").strip()) < 5 and s.replace(" ", "").isdigit():
+        return True
+    return False
+
+
+def parse_time(time_str: str) -> dt:
     """
     Parse time string and return datetime.time object.
     Supports formats:
@@ -141,12 +222,13 @@ def parse_time(time_str: str) -> datetime.time:
       - -Xh -Ym (relative time with space, e.g., "-2h -10m")
     """
     time_str = persian_to_english(time_str.strip())
-    hours = minutes = None
+    hours = minutes = is_relative = dt_object = None
 
     relative_date = ["h", "m"]
     for d in relative_date:
         if d in time_str:
-            hours, minutes = parse_relative_time(time_str)
+            dt_object = parse_relative_time(time_str)
+            hours, minutes, is_relative = dt_object.hour, dt_object.minute, True
             break
     if not (hours or minutes):
         sep = [":", " "]
@@ -166,10 +248,26 @@ def parse_time(time_str: str) -> datetime.time:
         elif is_digit == "T":
             hours, minutes = parse_hour_minute(time_str)
 
-    if hours is not None and minutes is not None and 0 <= hours <= 24 and 0 <= minutes <= 59:
-        return datetime.time(hours, minutes)
+    if (
+        hours is not None
+        and minutes is not None
+        and 0 <= hours <= 24
+        and 0 <= minutes <= 59
+    ):
+        if is_relative:
+            return dt_object
+        return dt.now(tehran_tz).replace(hour=hours, minute=minutes)
     else:
         raise ValueError("❌ Invalid time format.")
+
+
+def is_relative_time(time_str):
+    relative_str = ["h", "m"]
+    for d in relative_str:
+        if d in time_str:
+            parse_relative_time(time_str)
+            return True
+    return False
 
 
 def parse_relative_time(s: str):
@@ -184,29 +282,9 @@ def parse_relative_time(s: str):
         now = dt.now(tehran_tz)
         delta = relativedelta(hours=hours, minutes=minutes)
         target = now + delta
-        return target.hour, target.minute
+        return target
     else:
         raise ValueError("❌ Invalid time format.")
-
-
-def get_time(s: str):
-    s = s.replace(" ", "")
-    hours = minutes = 0
-    num = ""
-    for ch in s:
-        if ch in ["-", "+"]:
-            num += ch
-        elif ch.isdigit():
-            num += ch
-        else:
-            if num and num not in ["-", "+"]:
-                value = int(num)
-                if ch == "h":
-                    hours += value
-                elif ch == "m":
-                    minutes += value
-            num = ""  # reset
-    return hours, minutes
 
 
 def parse_hour_minute(time_str: str):
@@ -238,126 +316,21 @@ def parse_hour_minute(time_str: str):
     return hour, minute
 
 
-def is_time(s: str) -> bool:
-    # must not contain any other alphabetic characters
-    for ch in s:
-        if ch.isalpha() and ch not in ('h', 'm'):
-            return False
-
-    parts = s.split()
-    if len(parts) == 1 and ('h' in parts[0] or 'm' in parts[0]):
-        return True
-    elif len(parts) == 2 and ('h' in parts[0] or 'm' in parts[0]):
-        return True
-
-    if ":" in s and len(s.strip()) < 6:
-        try:
-            hours, minutes = map(int, s.split(":"))
-            return True
-        except ValueError:
-            return False
-
-    if len(s.replace(" ", "").strip()) < 5 and s.replace(" ", "").isdigit():
-        return True
-    return False
-
-
-def is_time_format(s: str) -> bool:
-    """
-    Determine if a string looks like a time format.
-    Returns True if it's definitely time, False otherwise.
-    """
-    s = s.strip()
-
-    # Has time indicators (h, m, or :)
-    if 'h' in s or 'm' in s or ':' in s:
-        return True
-
-    # For space-separated or pure digit strings, check if it could be time
+def get_time(s: str):
     s = s.replace(" ", "")
-    if s.isdigit():
-        # If it's 1-4 digits, could be time (HH or HHMM)
-        # If it's 6+ digits, it's likely a date (YYYYMMDD)
-        if len(s) <= 4:
-            # Check if the numbers make sense as time
-            try:
-                if len(s) <= 2:
-                    # Single value like "12" - could be hour
-                    val = int(s)
-                    return 0 <= val <= 24
-                else:
-                    # Try to parse as time
-                    h, m = parse_hour_minute(s)
-                    return 0 <= h <= 24 and 0 <= m <= 59
-            except:
-                return False
-        return False
-
-    # Check for space-separated numbers that could be time (HH MM)
-    if ' ' in s:
-        parts = s.split()
-        if len(parts) == 2:
-            try:
-                h, m = int(parts[0]), int(parts[1])
-                return 0 <= h <= 24 and 0 <= m <= 59
-            except ValueError:
-                return False
-
-    return False
-
-
-def parse_date_and_time(input_str: str) -> datetime.datetime:
-    """
-    Parse a string combining date and time into a datetime object.
-
-    Supported formats:
-      - Date formats: YYYYMMDD, YYYY/MM/DD, YYYY-MM-DD, YYYY MM DD, -XY-YM-ZD
-      - Time formats: HH:MM, HHMM, HH MM, -Xh-Ym, -Xh -Ym
-      - Combined: date followed by time, separated by space
-      - Time only: just the time part (uses today's date)
-
-    Examples:
-      - "14040819 12:35"
-      - "1404/08/19 -2h-10m"
-      - "-1Y-2M-3D 12:35"
-      - "12:35"
-      - "-2h-10m"
-    """
-    input_str = persian_to_english(input_str.strip())
-
-    # Split by spaces to separate date and time parts
-    parts = input_str.split()
-
-    # Check if input is time-only
-    if len(parts) == 1 and is_time(parts[0]):
-        # Time only - use today's date
-        tehran = pytz.timezone("Asia/Tehran")
-        now = dt.now(tehran)
-        time_obj = parse_time(input_str)
-        return dt.combine(now.date(), time_obj, tzinfo=tehran)
-    elif len(parts) == 2 and is_time(" ".join(parts)):
-        # It's time-only like "12 35"
-        tehran = pytz.timezone("Asia/Tehran")
-        now = dt.now(tehran)
-        time_obj = parse_time(" ".join(parts))
-        return dt.combine(now.date(), time_obj, tzinfo=tehran)
-
-    # Not time-only, so parse as date + time
-    date_part = parts[0]
-    time_part = " ".join(parts[1:])
-
-    date_obj = parse_date(date_part)
-    if time_part:
-        time_obj = parse_time(time_part)
-    else:
-        time_obj = datetime.time(0, 0)
-
-    # Combine into datetime
-    result = dt.combine(date_obj, time_obj)
-
-    # Add Tehran timezone
-    result = tehran_tz.localize(result)
-
-    return result
-
-print(parse_date_and_time("5h"))
+    hours = minutes = 0
+    num = ""
+    for ch in s:
+        if ch in ["-", "+"]:
+            num += ch
+        elif ch.isdigit():
+            num += ch
+        else:
+            if num and num not in ["-", "+"]:
+                value = int(num)
+                if ch == "h":
+                    hours += value
+                elif ch == "m":
+                    minutes += value
+            num = ""  # reset
+    return hours, minutes

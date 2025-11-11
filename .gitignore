@@ -1,2 +1,7 @@
 .venv
 .pre-commit-config.yaml
+*.session
+__pycache__
+.idea
+.env
+test.py

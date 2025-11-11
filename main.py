@@ -1,23 +1,25 @@
 import asyncio
-import datetime as dt
+import datetime
+import os
 import threading
+from datetime import datetime as dt
 
 import jdatetime
 import pytz
 import telebot
 from dateutil.relativedelta import relativedelta
+from dotenv import load_dotenv
 from telethon import TelegramClient
 
+load_dotenv()
+
 # ===== CONFIGURATION =====
-TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # From @BotFather
-
-# Telethon credentials (from https://my.telegram.org)
-API_ID = 'your_api_id_here'  # Replace with your API ID
-API_HASH = 'your_api_hash_here'  # Replace with your API Hash
-PHONE_NUMBER = 'your_phone_number'  # Your phone number with country code
-
-# Channel username (without @)
-CHANNEL_USERNAME = 'your_channel_username'
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")  # Channel username (without @)
+PROXY_SERVER = os.getenv("PROXY_SERVER")
+PROXY_PORT = os.getenv("PROXY_PORT")
 
 # ===== INITIALIZE BOT =====
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -81,7 +83,7 @@ def parse_relative_date(s: str):
       Y = years, M = months, D = days
     """
     tehran = pytz.timezone("Asia/Tehran")
-    now = dt.datetime.now(tehran)
+    now = dt.now(tehran)
     if s == "0" or s == "NOW":
         return now.year, now.month, now.day
     direction = -1 if "-" in s else 1
@@ -113,7 +115,7 @@ def parse_relative_date(s: str):
         raise ValueError("❌ Invalid date format.")
 
 
-def parse_date(date_str: str) -> dt.date:
+def parse_date(date_str: str) -> datetime.date:
     date_str = persian_to_english(date_str.strip())
     date_str = date_str.replace(" ", "")
     year, month, day = None, None, None
@@ -139,11 +141,11 @@ def parse_date(date_str: str) -> dt.date:
             month, day = parse_month_day(date_str[4:])
 
     if 1394 < year < 1425 and 0 < month < 13 and 0 < day < 32:
-        jdate = jdatetime.date(year, month, day)
-        return jdate.togregorian()
+        jdate = str(jdatetime.date(year, month, day).togregorian()).replace("-", "/")
+        return jdate
     elif 2014 < year < 2045 and 0 < month < 13 and 0 < day < 32:
-        date_obj = dt.datetime(year, month, day)
-        return date_obj.date()
+        date_obj = dt(year, month, day).date().replace("-", "/")
+        return date_obj
     else:
         raise ValueError("❌ Invalid date format.")
 
@@ -152,8 +154,13 @@ def parse_date(date_str: str) -> dt.date:
 async def create_telethon_client():
     """Create and start Telethon client"""
     global client
-    client = TelegramClient('session_name', API_ID, API_HASH)
-    await client.start(phone=PHONE_NUMBER)
+    if PROXY_SERVER and PROXY_PORT:
+        client = TelegramClient(
+            "scraper", API_ID, API_HASH, proxy=("socks5", PROXY_SERVER, int(PROXY_PORT))
+        )
+    else:
+        client = TelegramClient("scraper", API_ID, API_HASH)
+    await client.start()
     print("Telethon client started successfully")
     return client
 
@@ -170,7 +177,7 @@ async def initialize_telethon():
         return False
 
 
-def get_first_message_of_day(target_date: dt.date):
+def get_first_message_of_day(target_date: datetime.date):
     """
     Get the first message from channel for a specific date using Telethon.
     Returns the first message sent on that day.
@@ -185,11 +192,19 @@ def get_first_message_of_day(target_date: dt.date):
 
         try:
             # Get the channel entity
+            print("Get the channel entity")
             entity = await client.get_entity(CHANNEL_USERNAME)
+            print("Get the channel entity")
 
             # Calculate datetime boundaries for the target day
-            start_of_day = dt.datetime.combine(target_date, dt.time.min).replace(tzinfo=dt.timezone.utc)
-            end_of_day = dt.datetime.combine(target_date, dt.time.max).replace(tzinfo=dt.timezone.utc)
+            print("Calculate datetime boundaries for the target day - P1")
+            start_of_day = datetime.combine(target_date, datetime.time.min).replace(
+                tzinfo=datetime.timezone.utc
+            )
+            print("Calculate datetime boundaries for the target day - P2")
+            end_of_day = datetime.combine(target_date, datetime.time.max).replace(
+                tzinfo=datetime.timezone.utc
+            )
 
             print(f"Searching for first message on {target_date}")
             print(f"Time range: {start_of_day} to {end_of_day}")
@@ -197,9 +212,7 @@ def get_first_message_of_day(target_date: dt.date):
             # First, check if there are any messages on this day
             message_count = 0
             async for message in client.iter_messages(
-                    entity,
-                    offset_date=end_of_day,
-                    limit=5
+                entity, offset_date=end_of_day, limit=5
             ):
                 if start_of_day <= message.date <= end_of_day:
                     message_count += 1
@@ -211,10 +224,10 @@ def get_first_message_of_day(target_date: dt.date):
             # Now find the first message of the day
             first_message = None
             async for message in client.iter_messages(
-                    entity,
-                    offset_date=start_of_day,
-                    reverse=True,  # Start from the beginning of the day
-                    limit=20
+                entity,
+                offset_date=start_of_day,
+                reverse=True,  # Start from the beginning of the day
+                limit=20,
             ):
                 if message.date >= start_of_day:
                     first_message = message
@@ -231,13 +244,15 @@ def get_first_message_of_day(target_date: dt.date):
                 else:
                     message_text = "[Empty message]"
 
-                return [{
-                    'id': first_message.id,
-                    'date': first_message.date,
-                    'text': message_text,
-                    'is_media': first_message.media is not None,
-                    'message_obj': first_message
-                }]
+                return [
+                    {
+                        "id": first_message.id,
+                        "date": first_message.date,
+                        "text": message_text,
+                        "is_media": first_message.media is not None,
+                        "message_obj": first_message,
+                    }
+                ]
             else:
                 return []
 
@@ -258,9 +273,9 @@ def get_first_message_of_day(target_date: dt.date):
 
 
 # ===== TELEGRAM BOT HANDLERS =====
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=["start"])
 def send_welcome(message):
-    user_states[message.chat.id] = {'waiting_for_date': False}
+    user_states[message.chat.id] = {"waiting_for_date": False}
 
     welcome_text = """
 🤖 **Date Message Forwarder Bot**
@@ -270,7 +285,7 @@ Send me a date and I'll find the first message from the channel for that date!
 **Supported date formats:**
 - **Jalali/Persian**: 1403/02/15, 14030215
 - **Gregorian**: 2024/05/05, 20240505
-- **Relative dates**: 
+- **Relative dates**:
   - `NOW` or `0` - Today
   - `15D` - 15 days from now
   - `2M` - 2 months from now
@@ -286,19 +301,25 @@ Send me a date and I'll find the first message from the channel for that date!
 
 Use /getdate to search for messages! 📅
     """
-    bot.reply_to(message, welcome_text, parse_mode='Markdown')
+    bot.reply_to(message, welcome_text, parse_mode="Markdown")
 
 
-@bot.message_handler(commands=['getdate'])
+@bot.message_handler(commands=["getdate"])
 def ask_for_date(message):
-    user_states[message.chat.id] = {'waiting_for_date': True}
-    bot.reply_to(message, "📅 Please send me the date you want to get the first message for:")
+    user_states[message.chat.id] = {"waiting_for_date": True}
+    bot.reply_to(
+        message, "📅 Please send me the date you want to get the first message for:"
+    )
 
 
-@bot.message_handler(commands=['status'])
+@bot.message_handler(commands=["status"])
 def check_status(message):
     """Check if Telethon client is connected"""
-    status = "✅ Telethon client is connected" if client and client.is_connected() else "❌ Telethon client is not connected"
+    status = (
+        "✅ Telethon client is connected"
+        if client and client.is_connected()
+        else "❌ Telethon client is not connected"
+    )
     bot.reply_to(message, f"Bot Status:\n{status}")
 
 
@@ -307,58 +328,78 @@ def handle_date_input(message):
     chat_id = message.chat.id
 
     # Check if user is in waiting for date state
-    if chat_id in user_states and user_states[chat_id].get('waiting_for_date', False):
-        try:
-            # Parse the date
-            target_date = parse_date(message.text)
+    if chat_id in user_states and user_states[chat_id].get("waiting_for_date", False):
+        # try:
+        # Parse the date
+        result = parse_date(message.text)
 
-            # Send confirmation
-            jdate = jdatetime.date.fromgregorian(date=target_date)
-            bot.reply_to(message, f"✅ Date parsed successfully!\n"
-                                  f"Gregorian: {target_date}\n"
-                                  f"Jalali: {jdate}\n\n"
-                                  f"🔍 Searching for the first message of this day...")
+        if check_calendar_type(result) == "Jalali":
+            gregorian_day = convert_to_gregorian(result)
+            jalali_day = result
+        else:
+            gregorian_day = result
+            jalali_day = convert_to_jalali(result)
 
-            # Check if Telethon client is ready
-            if client is None or not client.is_connected():
-                bot.reply_to(message, "❌ Telethon client is not ready. Please try again in a moment.")
-                user_states[chat_id] = {'waiting_for_date': False}
-                return
+        # Send confirmation
+        bot.reply_to(
+            message,
+            f"✅ Date parsed successfully!\n"
+            f"Gregorian: {gregorian_day}\n"
+            f"Jalali: {jalali_day}\n\n"
+            f"🔍 Searching for the first message of this day...",
+        )
 
-            # Get the first message for that date
-            messages = get_first_message_of_day(target_date)
+        # Check if Telethon client is ready
+        if client is None or not client.is_connected():
+            bot.reply_to(
+                message,
+                "❌ Telethon client is not ready. Please try again in a moment.",
+            )
+            user_states[chat_id] = {"waiting_for_date": False}
+            return
 
-            if messages:
-                for msg in messages:
-                    # Format the message info
-                    message_text = f"📅 **First Message of {target_date}**\n"
-                    message_text += f"🕒 **Time**: {msg['date'].strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-                    message_text += f"📝 **Content**:\n{msg['text']}"
+        # Get the first message for that date
+        messages = get_first_message_of_day(gregorian_day)
 
-                    # Try to forward the original message if it's media
-                    if msg['is_media']:
-                        try:
-                            # Forward the original media message
-                            bot.forward_message(chat_id, CHANNEL_USERNAME, msg['id'])
-                            # Also send the text description
-                            bot.send_message(chat_id, message_text, parse_mode='Markdown')
-                        except Exception as e:
-                            # If forwarding fails, just send the text
-                            bot.send_message(chat_id, f"{message_text}\n\n⚠️ *Could not forward media message*",
-                                             parse_mode='Markdown')
-                    else:
-                        # For text messages, just send the content
-                        bot.send_message(chat_id, message_text, parse_mode='Markdown')
-            else:
-                bot.reply_to(message, f"📭 No messages found for {target_date}")
+        if messages:
+            for msg in messages:
+                # Format the message info
+                message_text = f"📅 **First Message of {result}**\n"
+                message_text += (
+                    f"🕒 **Time**: {msg['date'].strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+                )
+                message_text += f"📝 **Content**:\n{msg['text']}"
 
-            # Reset user state
-            user_states[chat_id] = {'waiting_for_date': False}
+                # Try to forward the original message if it's media
+                if msg["is_media"]:
+                    try:
+                        # Forward the original media message
+                        bot.forward_message(chat_id, CHANNEL_USERNAME, msg["id"])
+                        # Also send the text description
+                        bot.send_message(chat_id, message_text, parse_mode="Markdown")
+                    except Exception as e:
+                        # If forwarding fails, just send the text
+                        bot.send_message(
+                            chat_id,
+                            f"{message_text}\n\n⚠️ *Could not forward media message*",
+                            parse_mode="Markdown",
+                        )
+                else:
+                    # For text messages, just send the content
+                    bot.send_message(chat_id, message_text, parse_mode="Markdown")
+        else:
+            bot.reply_to(message, f"📭 No messages found for {result}")
 
-        except ValueError as e:
-            bot.reply_to(message, f"❌ {str(e)}\n\nPlease send a valid date in one of the supported formats.")
-        except Exception as e:
-            bot.reply_to(message, f"❌ An error occurred: {str(e)}")
+        # Reset user state
+        user_states[chat_id] = {"waiting_for_date": False}
+
+    # except ValueError as e:
+    #     bot.reply_to(
+    #         message,
+    #         f"❌ {str(e)}\n\nPlease send a valid date in one of the supported formats.",
+    #     )
+    # except Exception as e:
+    #     bot.reply_to(message, f"❌ An error occurred: {str(e)}")
 
     else:
         # User sent a message without using /getdate first
@@ -366,21 +407,62 @@ def handle_date_input(message):
             target_date = parse_date(message.text)
             jdate = jdatetime.date.fromgregorian(date=target_date)
 
-            bot.reply_to(message, f"✅ Date parsed successfully!\n"
-                                  f"Gregorian: {target_date}\n"
-                                  f"Jalali: {jdate}\n\n"
-                                  f"Use /getdate command to search for the first message from this date.")
+            bot.reply_to(
+                message,
+                f"✅ Date parsed successfully!\n"
+                f"Gregorian: {target_date}\n"
+                f"Jalali: {jdate}\n\n"
+                f"Use /getdate command to search for the first message from this date.",
+            )
 
         except ValueError as e:
-            bot.reply_to(message, f"❌ {str(e)}\n\nUse /start to see supported date formats.")
+            bot.reply_to(
+                message, f"❌ {str(e)}\n\nUse /start to see supported date formats."
+            )
         except Exception as e:
             bot.reply_to(message, f"❌ An error occurred: {str(e)}")
 
 
 # Error handler for media messages
-@bot.message_handler(func=lambda message: True, content_types=['audio', 'video', 'document', 'photo', 'sticker'])
+@bot.message_handler(
+    func=lambda message: True,
+    content_types=["audio", "video", "document", "photo", "sticker"],
+)
 def handle_media(message):
-    bot.reply_to(message, "📅 Please send a date in text format. Use /start to see supported formats.")
+    bot.reply_to(
+        message,
+        "📅 Please send a date in text format. Use /start to see supported formats.",
+    )
+
+
+def check_calendar_type(input_day):
+    year = int(input_day[:4])
+
+    if 1300 <= year <= 1500:
+        return "Jalali"
+    else:
+        return "Gregorian"
+
+
+def convert_to_gregorian(date_str):
+    try:
+        jalali_date = jdatetime.datetime.strptime(date_str, "%Y/%m/%d").date()
+        gregorian_date = jalali_date.togregorian()
+        return gregorian_date.strftime("%Y/%m/%d")
+    except ValueError as e:
+        return None
+
+
+def convert_to_jalali(date_str):
+    try:
+        # Parse the Gregorian string to a ``datetime`` object
+        gregorian_dt = dt.strptime(date_str, "%Y/%m/%d")
+        # Convert to a Jalali ``jdatetime`` object
+        jd = jdatetime.date.fromgregorian(date=gregorian_dt)
+
+        return jd.strftime("%Y/%m/%d")
+    except ValueError as e:
+        return None
 
 
 # ===== INITIALIZATION AND MAIN LOOP =====
@@ -421,6 +503,9 @@ if __name__ == "__main__":
     print("- /status - Check connection status")
 
     try:
+        if PROXY_SERVER and PROXY_PORT:
+            proxy_url = f"socks5h://{PROXY_SERVER}:{PROXY_PORT}"
+            telebot.apihelper.proxy = {"http": proxy_url, "https": proxy_url}
         bot.infinity_polling(timeout=60, long_polling_timeout=60)
     except Exception as e:
         print(f"❌ Bot error: {e}")

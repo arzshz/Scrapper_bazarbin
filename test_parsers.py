@@ -118,10 +118,11 @@ date_parts1 = [
     "3D0Y0M",
     "3D0M1Y",
     "3D2M0Y",
-    "3000D2M10Y"
+    "3000D2M10Y",
 ]
 
 date_parts2 = [
+    "NOW",
     "140411",
     "1404/1/1",
     "1404-1-1",
@@ -233,7 +234,7 @@ date_parts2 = [
     "3D0Y0M",
     "3D0M1Y",
     "3D2M0Y",
-    "3000D2M10Y"
+    "3000D2M10Y",
 ]
 
 # Time parts to test
@@ -318,6 +319,7 @@ time_parts = [
     "0h 100m",
     "25h0m",
     "25h 0m",
+    "0",
     # "a",
     # "ab",
     # "abc",
@@ -353,6 +355,7 @@ from parsers import parse_date_and_time
 
 test_cases = []
 for date in date_parts2:
+    test_cases.append(date)
     for time in time_parts:
         test_cases.append(f"{date} {time}")
 
