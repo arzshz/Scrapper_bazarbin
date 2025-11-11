@@ -5,11 +5,11 @@ import threading
 from datetime import datetime as dt
 
 import jdatetime
-import pytz
 import telebot
-from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
 from telethon import TelegramClient
+
+from parsers import parse_date_and_time
 
 load_dotenv()
 
@@ -27,127 +27,7 @@ bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 # ===== GLOBAL VARIABLES =====
 client = None
 user_states = {}
-
-
-# ===== DATE PARSING FUNCTIONS =====
-def persian_to_english(text):
-    """Convert Persian/Farsi numbers to English"""
-    persian_numbers = "۰۱۲۳۴۵۶۷۸۹"
-    english_numbers = "0123456789"
-    translation_table = str.maketrans(persian_numbers, english_numbers)
-    return text.translate(translation_table)
-
-
-def parse_month_day(month_day: str):
-    """
-    Parse a month+day string into integers.
-    Supported formats:
-      - MMDD (4 chars)
-      - MDD or MMD (3 chars, but ambiguous → error if both valid)
-      - MD (2 chars)
-    """
-    if len(month_day) == 4:  # MMDD
-        month = int(month_day[:2])
-        day = int(month_day[2:])
-    elif len(month_day) == 3:
-        # Could be MDD or MMD → ambiguous if both interpretations are valid
-        m1, d1 = int(month_day[0]), int(month_day[1:])  # MDD
-        m2, d2 = int(month_day[:2]), int(month_day[2:])  # MMD
-
-        valid_m1 = 1 <= m1 <= 12
-        valid_m2 = 1 <= m2 <= 12
-
-        if valid_m1 and not valid_m2:
-            month, day = m1, d1
-        elif valid_m2 and not valid_m1:
-            month, day = m2, d2
-        else:
-            raise ValueError(
-                f"❌ Ambiguous date. Use separators like YYYY-MM-DD or YYYY/MM/DD."
-            )
-    elif len(month_day) == 2:  # MD
-        month = int(month_day[0])
-        day = int(month_day[1])
-    else:
-        raise ValueError(f"❌ Invalid date format.")
-
-    return month, day
-
-
-def parse_relative_date(s: str):
-    """
-    Parse a string like '15D2Y34M' or '39M-4Y2M' into (year, month, day) in Tehran timezone.
-    Special cases:
-      - '0' or 'NOW' => today's date
-    Units:
-      Y = years, M = months, D = days
-    """
-    tehran = pytz.timezone("Asia/Tehran")
-    now = dt.now(tehran)
-    if s == "0" or s == "NOW":
-        return now.year, now.month, now.day
-    direction = -1 if "-" in s else 1
-    clean = s.replace("-", "").replace("+", "")
-    years = months = days = 0
-    num = ""
-    for ch in clean:
-        if ch.isdigit():
-            num += ch
-        else:
-            if not num:
-                continue
-            value = int(num)
-            if ch == "Y":
-                years += value
-            elif ch == "M":
-                months += value
-            elif ch == "D":
-                days += value
-            num = ""  # reset
-
-    # Apply offset
-    years, months, days = direction * years, direction * months, direction * days
-    if years != 0 or months != 0 or days != 0:
-        delta = relativedelta(years=years, months=months, days=days)
-        target = now + delta
-        return target.year, target.month, target.day
-    else:
-        raise ValueError("❌ Invalid date format.")
-
-
-def parse_date(date_str: str) -> datetime.date:
-    date_str = persian_to_english(date_str.strip())
-    date_str = date_str.replace(" ", "")
-    year, month, day = None, None, None
-    relative_date = ["Y", "M", "D", "NOW"]
-    for d in relative_date:
-        if d in date_str.upper() or date_str == "0":
-            year, month, day = parse_relative_date(date_str.upper())
-            break
-    if not (year or month or day):
-        sep = ["/", "-"]
-        for s in sep:
-            if s in date_str:
-                year, month, day = map(int, date_str.split(s))
-                is_digit = "N"
-                break
-        else:
-            is_digit = "T" if date_str.isdigit() else "F"
-
-        if is_digit == "F" or (is_digit == "T" and len(date_str) < 6):
-            raise ValueError("❌ Invalid date format.")
-        elif is_digit == "T":
-            year = int(date_str[:4])
-            month, day = parse_month_day(date_str[4:])
-
-    if 1394 < year < 1425 and 0 < month < 13 and 0 < day < 32:
-        jdate = str(jdatetime.date(year, month, day).togregorian()).replace("-", "/")
-        return jdate
-    elif 2014 < year < 2045 and 0 < month < 13 and 0 < day < 32:
-        date_obj = dt(year, month, day).date().replace("-", "/")
-        return date_obj
-    else:
-        raise ValueError("❌ Invalid date format.")
+telethon_loop = None  # Store the event loop used for Telethon
 
 
 # ===== TELETHON CLIENT FUNCTIONS =====
@@ -198,11 +78,11 @@ def get_first_message_of_day(target_date: datetime.date):
 
             # Calculate datetime boundaries for the target day
             print("Calculate datetime boundaries for the target day - P1")
-            start_of_day = datetime.combine(target_date, datetime.time.min).replace(
+            start_of_day = datetime.datetime.combine(target_date, datetime.time.min).replace(
                 tzinfo=datetime.timezone.utc
             )
             print("Calculate datetime boundaries for the target day - P2")
-            end_of_day = datetime.combine(target_date, datetime.time.max).replace(
+            end_of_day = datetime.datetime.combine(target_date, datetime.time.max).replace(
                 tzinfo=datetime.timezone.utc
             )
 
@@ -212,7 +92,7 @@ def get_first_message_of_day(target_date: datetime.date):
             # First, check if there are any messages on this day
             message_count = 0
             async for message in client.iter_messages(
-                entity, offset_date=end_of_day, limit=5
+                    entity, offset_date=end_of_day, limit=5
             ):
                 if start_of_day <= message.date <= end_of_day:
                     message_count += 1
@@ -224,10 +104,10 @@ def get_first_message_of_day(target_date: datetime.date):
             # Now find the first message of the day
             first_message = None
             async for message in client.iter_messages(
-                entity,
-                offset_date=start_of_day,
-                reverse=True,  # Start from the beginning of the day
-                limit=20,
+                    entity,
+                    offset_date=start_of_day,
+                    reverse=True,  # Start from the beginning of the day
+                    limit=20,
             ):
                 if message.date >= start_of_day:
                     first_message = message
@@ -260,12 +140,84 @@ def get_first_message_of_day(target_date: datetime.date):
             print(f"Error retrieving messages: {e}")
             return []
 
-    # Run the async function
+    # Use the same event loop as Telethon client
+    if telethon_loop is None or not telethon_loop.is_running():
+        print("Telethon event loop not available")
+        return []
+
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(async_get_first_message())
-        loop.close()
+        future = asyncio.run_coroutine_threadsafe(async_get_first_message(), telethon_loop)
+        result = future.result(timeout=30)  # 30 second timeout
+        return result
+    except Exception as e:
+        print(f"Error in event loop: {e}")
+        return []
+
+
+async def async_get_closest_message(target_dt: datetime.datetime):
+    global client
+
+    if client is None:
+        print("Telethon client not initialized")
+        return []
+
+    try:
+        # Get the channel entity
+        entity = await client.get_entity(CHANNEL_USERNAME)
+
+        # Fetch a few messages around the target datetime
+        # offset_date means "start fetching messages older than this date"
+        messages = []
+        async for msg in client.iter_messages(entity, offset_date=target_dt, limit=10):
+            messages.append(msg)
+
+        # Also fetch newer messages (reverse=True gives ascending order)
+        async for msg in client.iter_messages(entity, offset_date=target_dt, reverse=True, limit=10):
+            messages.append(msg)
+
+        if not messages:
+            print("No messages found near this datetime")
+            return []
+
+        # Find the closest message by absolute time difference
+        closest = min(messages, key=lambda m: abs((m.date - target_dt).total_seconds()))
+
+        # Format message content
+        if closest.text:
+            message_text = closest.text
+        elif closest.media:
+            message_text = f"[Media: {closest.media.__class__.__name__}]"
+        else:
+            message_text = "[Empty message]"
+
+        return [
+            {
+                "id": closest.id,
+                "date": closest.date,
+                "text": message_text,
+                "is_media": closest.media is not None,
+                "message_obj": closest,
+            }
+        ]
+
+    except Exception as e:
+        print(f"Error retrieving messages: {e}")
+        return []
+
+
+def get_closest_message(target_dt: datetime.datetime):
+    """
+    Get the closest message to a specific datetime using Telethon.
+    Returns the message nearest to the given datetime.
+    """
+    # Use the same event loop as Telethon client
+    if telethon_loop is None or not telethon_loop.is_running():
+        print("Telethon event loop not available")
+        return []
+
+    try:
+        future = asyncio.run_coroutine_threadsafe(async_get_closest_message(target_dt), telethon_loop)
+        result = future.result(timeout=30)  # 30 second timeout
         return result
     except Exception as e:
         print(f"Error in event loop: {e}")
@@ -329,82 +281,79 @@ def handle_date_input(message):
 
     # Check if user is in waiting for date state
     if chat_id in user_states and user_states[chat_id].get("waiting_for_date", False):
-        # try:
-        # Parse the date
-        result = parse_date(message.text)
+        try:
+            # Parse the date
+            result = parse_date_and_time(message.text)
 
-        if check_calendar_type(result) == "Jalali":
-            gregorian_day = convert_to_gregorian(result)
-            jalali_day = result
-        else:
-            gregorian_day = result
-            jalali_day = convert_to_jalali(result)
+            gregorian_day = str(result)[:10]
+            jalali_day = convert_to_jalali(str(result))
+            input_time = str(result)[11:16]
 
-        # Send confirmation
-        bot.reply_to(
-            message,
-            f"✅ Date parsed successfully!\n"
-            f"Gregorian: {gregorian_day}\n"
-            f"Jalali: {jalali_day}\n\n"
-            f"🔍 Searching for the first message of this day...",
-        )
-
-        # Check if Telethon client is ready
-        if client is None or not client.is_connected():
+            # Send confirmation
             bot.reply_to(
                 message,
-                "❌ Telethon client is not ready. Please try again in a moment.",
+                f"✅ Date and Time parsed successfully!\n"
+                f"Gregorian: {gregorian_day}\n"
+                f"Jalali: {jalali_day}\n"
+                f"Time: {input_time}\n"
+                f"🔍 Searching for the first message of this day...",
             )
-            user_states[chat_id] = {"waiting_for_date": False}
-            return
 
-        # Get the first message for that date
-        messages = get_first_message_of_day(gregorian_day)
-
-        if messages:
-            for msg in messages:
-                # Format the message info
-                message_text = f"📅 **First Message of {result}**\n"
-                message_text += (
-                    f"🕒 **Time**: {msg['date'].strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+            # Check if Telethon client is ready
+            if client is None or not client.is_connected():
+                bot.reply_to(
+                    message,
+                    "❌ Telethon client is not ready. Please try again in a moment.",
                 )
-                message_text += f"📝 **Content**:\n{msg['text']}"
+                user_states[chat_id] = {"waiting_for_date": False}
+                return
 
-                # Try to forward the original message if it's media
-                if msg["is_media"]:
+            # Get the closest message for that datetime
+            messages = get_closest_message(result)
+
+            if messages:
+                for msg in messages:
+                    # Try to forward the original message if it's media
+                    # if msg["is_media"]:
                     try:
                         # Forward the original media message
-                        bot.forward_message(chat_id, CHANNEL_USERNAME, msg["id"])
+                        print("try forwarding")
+                        print(msg['id'])
+                        bot.forward_message(chat_id, f"@{CHANNEL_USERNAME}", int(msg["id"]))
                         # Also send the text description
-                        bot.send_message(chat_id, message_text, parse_mode="Markdown")
+                        # print("try sending")
+                        # bot.send_message(chat_id, message_text, parse_mode="Markdown")
                     except Exception as e:
                         # If forwarding fails, just send the text
+                        print(f"Exception:\n{e}")
                         bot.send_message(
                             chat_id,
-                            f"{message_text}\n\n⚠️ *Could not forward media message*",
+                            "\n".join(msg['text'].split("\n")[:-1]),
                             parse_mode="Markdown",
+                            disable_web_page_preview = True
                         )
-                else:
+                    # else:
                     # For text messages, just send the content
-                    bot.send_message(chat_id, message_text, parse_mode="Markdown")
-        else:
-            bot.reply_to(message, f"📭 No messages found for {result}")
+                    # print("else try sending")
+                    # bot.send_message(chat_id, "\n".join(msg['text'].split("\n")[:-1]), parse_mode="Markdown", disable_web_page_preview=True)
+            else:
+                bot.reply_to(message, f"📭 No messages available on {gregorian_day} at {input_time}")
 
-        # Reset user state
-        user_states[chat_id] = {"waiting_for_date": False}
+            # Reset user state
+            user_states[chat_id] = {"waiting_for_date": False}
 
-    # except ValueError as e:
-    #     bot.reply_to(
-    #         message,
-    #         f"❌ {str(e)}\n\nPlease send a valid date in one of the supported formats.",
-    #     )
-    # except Exception as e:
-    #     bot.reply_to(message, f"❌ An error occurred: {str(e)}")
+        except ValueError as e:
+            bot.reply_to(
+                message,
+                f"❌ {str(e)}\n\nPlease send a valid date in one of the supported formats.",
+            )
+        except Exception as e:
+            bot.reply_to(message, f"❌ An error occurred: {str(e)}")
 
     else:
         # User sent a message without using /getdate first
         try:
-            target_date = parse_date(message.text)
+            target_date = parse_date_and_time(message.text)
             jdate = jdatetime.date.fromgregorian(date=target_date)
 
             bot.reply_to(
@@ -456,36 +405,47 @@ def convert_to_gregorian(date_str):
 def convert_to_jalali(date_str):
     try:
         # Parse the Gregorian string to a ``datetime`` object
-        gregorian_dt = dt.strptime(date_str, "%Y/%m/%d")
+        gregorian_dt = dt.strptime(date_str[:10], "%Y-%m-%d")
         # Convert to a Jalali ``jdatetime`` object
         jd = jdatetime.date.fromgregorian(date=gregorian_dt)
 
-        return jd.strftime("%Y/%m/%d")
+        return jd.strftime("%Y-%m-%d")
     except ValueError as e:
         return None
 
 
 # ===== INITIALIZATION AND MAIN LOOP =====
 def initialize_telethon_sync():
-    """Initialize Telethon client in a separate thread"""
+    """Initialize Telethon client in a separate thread with persistent event loop"""
+    global telethon_loop
 
-    def init():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    def run_telethon_loop():
+        global telethon_loop
+        telethon_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(telethon_loop)
+
         try:
-            success = loop.run_until_complete(initialize_telethon())
+            # Initialize the client
+            success = telethon_loop.run_until_complete(initialize_telethon())
             if success:
                 print("✅ Telethon client initialized successfully")
             else:
                 print("❌ Failed to initialize Telethon client")
-        except Exception as e:
-            print(f"❌ Error initializing Telethon client: {e}")
-        finally:
-            loop.close()
+                return
 
-    telethon_thread = threading.Thread(target=init)
-    telethon_thread.daemon = True
+            # Keep the event loop running forever
+            telethon_loop.run_forever()
+        except Exception as e:
+            print(f"❌ Error in Telethon event loop: {e}")
+        finally:
+            telethon_loop.close()
+
+    telethon_thread = threading.Thread(target=run_telethon_loop, daemon=True)
     telethon_thread.start()
+
+    # Wait a bit for initialization
+    import time
+    time.sleep(2)
 
 
 if __name__ == "__main__":
@@ -512,5 +472,6 @@ if __name__ == "__main__":
     finally:
         # Close Telethon client when bot stops
         if client and client.is_connected():
-            client.disconnect()
+            if telethon_loop and telethon_loop.is_running():
+                asyncio.run_coroutine_threadsafe(client.disconnect(), telethon_loop)
             print("Telethon client disconnected")
