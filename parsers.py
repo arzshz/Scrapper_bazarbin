@@ -153,7 +153,9 @@ def parse_date_and_time(input_str: str) -> datetime.datetime:
     parts = input_str.split()
 
     # Check if input is time-only
-    if len(parts) == 1 and is_time(parts[0]):
+    if len(parts) == 1 and parts[0] in ["0", "NOW"]:
+        return dt.now(tehran_tz)
+    elif len(parts) == 1 and is_time(parts[0]):
         # Time only - use today's date
         return parse_time(input_str)
     elif len(parts) == 2 and is_time(" ".join(parts)):
