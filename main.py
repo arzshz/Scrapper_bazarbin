@@ -295,15 +295,13 @@ if __name__ == "__main__":
         ]
         bot.set_my_commands(commands)
         bot.infinity_polling(timeout=60, long_polling_timeout=60)
-    except Exception as e:
-        error = f"❌ Bot error:\n{e}"
-        print(error)
-        add_log(error)
+    except Exception as err:
+        print(f"❌ Bot error:\n{err}")
+        add_log(f"❌ Bot error:\n{err}")
     finally:
         # Close Telethon client when bot stops
         if client and client.is_connected():
             if telethon_loop and telethon_loop.is_running():
                 asyncio.run_coroutine_threadsafe(client.disconnect(), telethon_loop)
-            error = "Telethon client disconnected"
-            print(error)
-            add_log(error)
+            print("Telethon client disconnected")
+            add_log("Telethon client disconnected")
