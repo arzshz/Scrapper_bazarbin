@@ -294,7 +294,8 @@ if __name__ == "__main__":
             types.BotCommand(command="/help", description="Help info"),
         ]
         bot.set_my_commands(commands)
-        bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        bot.polling()
+
     except Exception as err:
         print(f"❌ Bot error:\n{err}")
         add_log(f"❌ Bot error:\n{err}")
