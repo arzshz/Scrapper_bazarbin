@@ -10,13 +10,16 @@ from secret import (
 )
 
 
-def add_log(the_error):
+def add_log(the_error, is_scraper=None):
     logging_bot = telebot.TeleBot(TOKEN_LOGGING)
     if PROXY_SERVER and PROXY_PORT:
         proxy_url = f"socks5h://{PROXY_SERVER}:{PROXY_PORT}"
         telebot.apihelper.proxy = {"http": proxy_url, "https": proxy_url}
     log_channel_id = LOG_CHANNEL_ID
-    logging_bot.send_message(log_channel_id, f"{get_bot_username()} - {the_error}")
+    if is_scraper:
+        logging_bot.send_message(log_channel_id, f"{the_error}")
+    else:
+        logging_bot.send_message(log_channel_id, f"{get_bot_username()} - {the_error}")
 
 
 def get_bot_username(proxies=None):

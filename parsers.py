@@ -153,7 +153,7 @@ def parse_date_and_time(input_str: str) -> datetime.datetime:
     parts = input_str.split()
 
     # Check if input is time-only
-    if len(parts) == 1 and parts[0].upper() in ['0', 'NOW']:
+    if len(parts) == 1 and parts[0].upper() in ["0", "NOW"]:
         return dt.now(tehran_tz)
     elif len(parts) == 1 and is_time(parts[0]):
         # Time only - use today's date
@@ -251,10 +251,10 @@ def parse_time(time_str: str) -> dt:
             hours, minutes = parse_hour_minute(time_str)
 
     if (
-            hours is not None
-            and minutes is not None
-            and 0 <= hours <= 24
-            and 0 <= minutes <= 59
+        hours is not None
+        and minutes is not None
+        and 0 <= hours <= 24
+        and 0 <= minutes <= 59
     ):
         if is_relative:
             return dt_object
