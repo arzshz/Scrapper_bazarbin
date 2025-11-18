@@ -1,5 +1,7 @@
 jdatetime==5.2.0
+pymongo==4.15.4
 PySocks==1.7.1
+pyTelegramBotAPI==4.29.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2025.2
