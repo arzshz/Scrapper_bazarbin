@@ -6,6 +6,7 @@ from telethon import TelegramClient
 
 from db_data import get_data
 from secret import *
+from log import add_log
 
 # --- Configure logger ---
 logging.basicConfig(
@@ -38,7 +39,9 @@ async def main():
     async for message in client.iter_messages(channel, limit=None):
         msg = message.text
         if not msg:
-            logger.info(f"Ignored\n{message.id}")
+            t = f"Ignored - {message.id}"
+            logger.info(t)
+            add_log(t)
             continue
         if msg.startswith("دلار (USD)") or msg.startswith("USDT (تتر)"):
             data_dict = get_data(msg)
@@ -63,7 +66,9 @@ async def main():
             else:
                 logger.info(f"{message.id} - result={update_result.modified_count}")
         else:
-            logger.info(f"Ignored - {message.id}")
+            t = f"Ignored - {message.id}"
+            logger.info(t)
+            add_log(t)
 
     print("All messages saved to MongoDB.")
 
