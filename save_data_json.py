@@ -61,7 +61,7 @@ async def main():
 
     async for message in client.iter_messages(channel, limit=None, reverse=True):
         msg = message.text
-        if message.id < 283322:
+        if 161314 < message.id < 283322:
             if not msg:
                 t = f"Ignored - {message.id}"
                 logger.info(t)
