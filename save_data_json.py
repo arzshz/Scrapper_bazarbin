@@ -60,34 +60,35 @@ async def main():
 
     async for message in client.iter_messages(channel, limit=None):
         msg = message.text
-        if not msg:
-            t = f"Ignored - {message.id}"
-            logger.info(t)
-            add_log(t)
-            continue
-        if msg.startswith("{"):
-            the_data = ast.literal_eval(msg)
-            data_dict = get_json_data(the_data)
-            dt = datetime.fromisoformat(str(message.date))
-            start = dt.replace(second=0, microsecond=0)
-            end = start.replace(second=59, microsecond=999999)
+        if message.id < 283322:
+            if not msg:
+                t = f"Ignored - {message.id}"
+                logger.info(t)
+                add_log(t)
+                continue
+            if msg.startswith("{"):
+                the_data = ast.literal_eval(msg)
+                data_dict = get_json_data(the_data)
+                dt = datetime.fromisoformat(str(message.date))
+                start = dt.replace(second=0, microsecond=0)
+                end = start.replace(second=59, microsecond=999999)
 
-            # Query range: match any timestamp in that minute
-            query = {"timestamp": {"$gte": start, "$lte": end}}
+                # Query range: match any timestamp in that minute
+                query = {"timestamp": {"$gte": start, "$lte": end}}
 
-            existing_doc = collection.find_one(query)
+                existing_doc = collection.find_one(query)
 
-            if not existing_doc:
-                data_dict["timestamp"] = dt
-                result = collection.insert_one(data_dict)
-                logger.info(f"{message.id} - status={result.acknowledged}")
-                print(f"{message.id} - status={result.acknowledged}")
+                if not existing_doc:
+                    data_dict["timestamp"] = dt
+                    result = collection.insert_one(data_dict)
+                    logger.info(f"{message.id} - status={result.acknowledged}")
+                    print(f"{message.id} - status={result.acknowledged}")
+                else:
+                    print("exists")
             else:
-                print("exists")
-        else:
-            t = f"Ignored - {message.id}"
-            logger.info(t)
-            add_log(t)
+                t = f"Ignored - {message.id}"
+                logger.info(t)
+                add_log(t)
 
     print("All messages saved to MongoDB.")
 
