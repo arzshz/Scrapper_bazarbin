@@ -178,7 +178,7 @@ def fill_crypto(final_dict, start, end):
 def to_int(price: str | None) -> Literal["خطا"] | float | int:
     if price == "خطا" or price is None:
         return "خطا"
-    elif "." in price:
+    elif "." in str(price):
         return float(price)
     else:
-        return int(price.replace(",", ""))
+        return int(str(price).replace(",", ""))

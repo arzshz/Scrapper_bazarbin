@@ -58,7 +58,7 @@ async def main():
     # Get channel entity
     channel = await client.get_entity(CHANNEL_JSON)  # or channel ID
 
-    async for message in client.iter_messages(channel, limit=None):
+    async for message in client.iter_messages(channel, limit=None, reverse=True):
         msg = message.text
         if message.id < 283322:
             if not msg:
