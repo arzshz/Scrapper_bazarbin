@@ -14,6 +14,7 @@ usd_dict = {
     "سبزه": "sabze",
     "تهران": "tehran",
     "بن بست": "bonbast",
+    "بن\u200cبست": "bonbast",
 }
 gold_dict = {
     "اونس طلا": "ounce",
