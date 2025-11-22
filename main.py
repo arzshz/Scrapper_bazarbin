@@ -123,7 +123,7 @@ def handle_date_input(message):
             f"{str(e)}\n\nPlease enter a valid date using one of the supported formats."
         )
         bot.reply_to(message, error)
-        add_log(error)
+        add_log(str(e))
     except Exception as e:
         error = f"❌ An error occurred:\n{str(e)}"
         bot.reply_to(message, error)

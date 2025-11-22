@@ -26,12 +26,12 @@ def parse_date(date_str: str) -> datetime.date:
                     is_digit = "N"
                     break
                 except ValueError:
-                    raise ValueError("❌ Invalid date format.")
+                    raise ValueError(f"❌ Invalid date format: {date_str}")
         else:
             is_digit = "T" if date_str.isdigit() else "F"
 
         if is_digit == "F" or (is_digit == "T" and len(date_str) < 6):
-            raise ValueError("❌ Invalid date format.")
+            raise ValueError(f"❌ Invalid date format: {date_str}")
         elif is_digit == "T":
             year = int(date_str[:4])
             month, day = parse_month_day(date_str[4:])
@@ -43,7 +43,7 @@ def parse_date(date_str: str) -> datetime.date:
         date_obj = dt(year, month, day).date()
         return date_obj
     else:
-        raise ValueError("❌ Invalid date format.")
+        raise ValueError(f"❌ Invalid date format: {date_str}")
 
 
 def persian_to_english(text):
@@ -73,7 +73,7 @@ def parse_relative_date(s: str):
         target = now + delta
         return target.year, target.month, target.day
     else:
-        raise ValueError("❌ Invalid date format.")
+        raise ValueError(f"❌ Invalid date format: {s}")
 
 
 def parse_month_day(month_day: str):
@@ -107,7 +107,7 @@ def parse_month_day(month_day: str):
         month = int(month_day[0])
         day = int(month_day[1])
     else:
-        raise ValueError(f"❌ Invalid date format.")
+        raise ValueError("❌ Invalid date format.")
 
     return month, day
 
@@ -246,13 +246,13 @@ def parse_time(time_str: str) -> dt:
                     hours, minutes = map(int, time_str.split(s))
                     is_digit = "N"
                 except ValueError:
-                    raise ValueError("❌ Invalid time format.")
+                    raise ValueError(f"❌ Invalid time format: {time_str}")
                 break
         else:
             is_digit = "T" if time_str.isdigit() else "F"
 
         if is_digit == "F" or (is_digit == "T" and len(time_str) > 5):
-            raise ValueError("❌ Invalid time format.")
+            raise ValueError(f"❌ Invalid time format: {time_str}")
         elif is_digit == "T":
             hours, minutes = parse_hour_minute(time_str)
 
@@ -266,7 +266,7 @@ def parse_time(time_str: str) -> dt:
             return dt_object
         return dt.now(tehran_tz).replace(hour=hours, minute=minutes)
     else:
-        raise ValueError("❌ Invalid time format.")
+        raise ValueError(f"❌ Invalid time format: {time_str}")
 
 
 def is_relative_time(time_str):
@@ -292,7 +292,7 @@ def parse_relative_time(s: str):
         target = now + delta
         return target
     else:
-        raise ValueError("❌ Invalid time format.")
+        raise ValueError(f"❌ Invalid time format: {s}")
 
 
 def parse_hour_minute(time_str: str):
@@ -320,7 +320,7 @@ def parse_hour_minute(time_str: str):
     elif 0 <= int(time_str) <= 24:
         hour, minute = int(time_str), 0
     else:
-        raise ValueError(f"❌ Invalid time format.")
+        raise ValueError(f"❌ Invalid time format: {time_str}")
     return hour, minute
 
 
