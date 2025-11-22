@@ -142,19 +142,16 @@ def convert_to_jalali(date_str):
 
 
 if __name__ == "__main__":
-    try:
-        if PROXY_SERVER and PROXY_PORT:
-            proxy_url = f"socks5h://{PROXY_SERVER}:{PROXY_PORT}"
-            telebot.apihelper.proxy = {"http": proxy_url, "https": proxy_url}
-        commands = [
-            types.BotCommand(
-                command="/start", description="Start interacting with the bot"
-            ),
-            types.BotCommand(command="/help", description="Help info"),
-        ]
-        bot.set_my_commands(commands)
-        print("Bot is Polling ...")
-        bot.polling()
-    except Exception as err:
-        print(f"❌ Bot error:\n{err}")
-        add_log(f"❌ Bot error:\n{err}")
+    if PROXY_SERVER and PROXY_PORT:
+        proxy_url = f"socks5h://{PROXY_SERVER}:{PROXY_PORT}"
+        telebot.apihelper.proxy = {"http": proxy_url, "https": proxy_url}
+    commands = [
+        types.BotCommand(
+            command="/start", description="Start interacting with the bot"
+        ),
+        types.BotCommand(command="/help", description="Help info"),
+    ]
+    bot.set_my_commands(commands)
+    print("Bot is Polling ...")
+    bot.polling()
+    add_log(f"❌ Bot is down now ❌")
