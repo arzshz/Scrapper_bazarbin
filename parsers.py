@@ -120,11 +120,11 @@ def get_date(s: str):
             if not num or num in ["-", "+"]:
                 continue
             value = int(num)
-            if ch == "Y" or "y":
+            if ch == "Y" or ch == "y":
                 years += value
             elif ch == "M":
                 months += value
-            elif ch == "D" or "d":
+            elif ch == "D" or ch == "d":
                 days += value
             num = ""  # reset
     return years, months, days

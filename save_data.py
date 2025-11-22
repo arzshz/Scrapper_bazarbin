@@ -63,8 +63,10 @@ async def main():
                 data_dict["timestamp"] = dt
                 result = collection.insert_one(data_dict)
                 logger.info(f"{message.id} - status={result.acknowledged}")
+                print(f"{message.id} - status={result.acknowledged}")
             else:
                 logger.info(f"{message.id} - result={update_result.modified_count}")
+                print(f"{message.id} - result={update_result.modified_count}")
         else:
             t = f"Ignored - {message.id}"
             logger.info(t)
