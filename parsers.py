@@ -12,7 +12,7 @@ def parse_date(date_str: str) -> datetime.date:
     date_str = persian_to_english(date_str.strip())
     date_str = date_str.replace(" ", "")
     year, month, day = None, None, None
-    relative_date = ["Y", "y", "M", "D", "d", "NOW"]
+    relative_date = ["Y", "y", "M", "W", "w", "D", "d", "NOW"]
     for d in relative_date:
         if d in date_str or date_str == "0":
             year, month, day = parse_relative_date(date_str)
@@ -66,8 +66,9 @@ def parse_relative_date(s: str):
     now = dt.now(tehran)
     if s == "0" or s == "NOW":
         return now.year, now.month, now.day
-    years, months, days = get_date(s)
-    if years != 0 or months != 0 or days != 0:
+    years, months, days, weeks = get_date(s)
+    if years != 0 or months != 0 or days != 0 or weeks != 0:
+        days += 7 * weeks
         delta = relativedelta(years=years, months=months, days=days)
         target = now + delta
         return target.year, target.month, target.day
@@ -113,7 +114,7 @@ def parse_month_day(month_day: str):
 
 def get_date(s: str):
     num = ""
-    years = months = days = 0
+    years = months = days = weeks = 0
     for ch in s:
         if ch in ["-", "+"]:
             num += ch
@@ -125,12 +126,14 @@ def get_date(s: str):
             value = int(num)
             if ch == "Y" or ch == "y":
                 years += value
+            elif ch == "W" or ch == "w":
+                weeks += value
             elif ch == "M":
                 months += value
             elif ch == "D" or ch == "d":
                 days += value
             num = ""  # reset
-    return years, months, days
+    return years, months, days, weeks
 
 
 def parse_date_and_time(input_str: str) -> datetime.datetime:
