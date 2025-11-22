@@ -21,9 +21,12 @@ def parse_date(date_str: str) -> datetime.date:
         sep = ["/", "-"]
         for s in sep:
             if s in date_str:
-                year, month, day = map(int, date_str.split(s))
-                is_digit = "N"
-                break
+                try:
+                    year, month, day = map(int, date_str.split(s))
+                    is_digit = "N"
+                    break
+                except ValueError:
+                    raise ValueError("❌ Invalid date format.")
         else:
             is_digit = "T" if date_str.isdigit() else "F"
 

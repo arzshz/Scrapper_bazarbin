@@ -21,10 +21,7 @@ collection = db["prices"]
 
 
 def get_nearest_data(dt_object: dt):
-    if dt_object.tzinfo is None:
-        dt_object = dt_object.astimezone(timezone.utc)
-    else:
-        dt_object = dt_object.astimezone(timezone.utc)
+    dt_object = dt_object.astimezone(timezone.utc)
 
     start = dt_object - timedelta(minutes=2, seconds=30)
     end = dt_object + timedelta(minutes=2, seconds=30)

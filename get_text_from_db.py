@@ -56,11 +56,11 @@ def get_text(the_dict):
                         if k1 == "sedaghat":
                             usd_txt += f"\nصداقت: {v1['buy']} | {v1['sell']}"
                         elif k1 == "sabze":
-                            usd_txt += f"\nسبزه: {v1['buy']} | {v1['sell']}"
+                            usd_txt += f"\n[سبزه](https://t.me/tahran_sabza): {v1['buy']} | {v1['sell']}"
                         elif k1 == "tehran":
-                            usd_txt += f"\nتهران: {v1['buy']} | {v1['sell']}"
+                            usd_txt += f"\n[تهران](https://t.me/dollar_tehran3bze): {v1['buy']} | {v1['sell']}"
                         elif k1 == "combination":
-                            usd_txt += f"\nسبزه | تهران: {v1['buy']} | {v1['sell']}"
+                            usd_txt += f"\n[سبزه](https://t.me/tahran_sabza) | [تهران]((https://t.me/dollar_tehran3bze)): {v1['buy']} | {v1['sell']}"
                         elif k1 == "fardayie":
                             usd_txt += f"\nفردایی سبزه و تهران: {v1['sabze']['buy']} | {v1['sabze']['sell']}"
                         elif k1 == "naghdi":
