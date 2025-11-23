@@ -1,5 +1,5 @@
 import datetime
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 
 import jdatetime
 import pytz
@@ -160,7 +160,7 @@ def parse_date_and_time(input_str: str) -> datetime.datetime:
 
     # Check if input is time-only
     if len(parts) == 1 and parts[0].upper() in ["0", "NOW"]:
-        return dt.now(tehran_tz)
+        return dt.now(tehran_tz) - timedelta(minutes=2, seconds=30)
     elif len(parts) == 1 and is_time(parts[0]):
         # Time only - use today's date
         return parse_time(input_str)
