@@ -87,7 +87,7 @@ def handle_date_input(message):
         else:
             greg = english_to_persian(gregorian_day).replace("-", "/")
             shamsi = english_to_persian(jalali_day).replace("-", "/")
-            txt = f"✅ ساعت و تاریخ دریافت شدند.\nمیلادی: {greg}\nشمسی: {shamsi}\nساعت: {english_to_persian(input_time)}\n🔍 در تلاش برای یافتن اطلاعات بازار در تاریخ مورد نظر هستیم ..."
+            txt = f"✅ ساعت و تاریخ دریافت شدند.\nمیلادی: {greg}\nشمسی: {shamsi}\nساعت: {english_to_persian(input_time)}\n🔍 در تلاش برای یافتن اطلاعات بازار در تاریخ و ساعت مورد نظر هستیم ..."
             bot.reply_to(message, txt)
 
         # Get the closest message for that datetime
