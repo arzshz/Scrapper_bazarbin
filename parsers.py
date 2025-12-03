@@ -8,6 +8,14 @@ from dateutil.relativedelta import relativedelta
 tehran_tz = pytz.timezone("Asia/Tehran")
 
 
+def english_to_persian(text):
+    """Convert English numbers to Persian/Farsi"""
+    persian_numbers = "۰۱۲۳۴۵۶۷۸۹"
+    english_numbers = "0123456789"
+    translation_table = str.maketrans(english_numbers, persian_numbers)
+    return text.translate(translation_table)
+
+
 def parse_date(date_str: str) -> datetime.date:
     date_str = persian_to_english(date_str.strip())
     date_str = date_str.replace(" ", "")
@@ -18,7 +26,7 @@ def parse_date(date_str: str) -> datetime.date:
             year, month, day = parse_relative_date(date_str)
             break
     if not (year or month or day):
-        sep = ["/", "-"]
+        sep = ["/", "-", "−"]
         for s in sep:
             if s in date_str:
                 try:
@@ -26,12 +34,12 @@ def parse_date(date_str: str) -> datetime.date:
                     is_digit = "N"
                     break
                 except ValueError:
-                    raise ValueError(f"❌ Invalid date format: {date_str}")
+                    raise ValueError("❌ فرمت معتبر نیست.")
         else:
             is_digit = "T" if date_str.isdigit() else "F"
 
         if is_digit == "F" or (is_digit == "T" and len(date_str) < 6):
-            raise ValueError(f"❌ Invalid date format: {date_str}")
+            raise ValueError("❌ فرمت معتبر نیست.")
         elif is_digit == "T":
             year = int(date_str[:4])
             month, day = parse_month_day(date_str[4:])
@@ -43,7 +51,7 @@ def parse_date(date_str: str) -> datetime.date:
         date_obj = dt(year, month, day).date()
         return date_obj
     else:
-        raise ValueError(f"❌ Invalid date format: {date_str}")
+        raise ValueError("❌ تاریخ خارج از بازه مجاز است.")
 
 
 def persian_to_english(text):
@@ -73,7 +81,7 @@ def parse_relative_date(s: str):
         target = now + delta
         return target.year, target.month, target.day
     else:
-        raise ValueError(f"❌ Invalid date format: {s}")
+        raise ValueError("❌ فرمت معتبر نیست.")
 
 
 def parse_month_day(month_day: str):
@@ -101,13 +109,13 @@ def parse_month_day(month_day: str):
             month, day = m2, d2
         else:
             raise ValueError(
-                f"❌ Ambiguous date. Please use separators such as YYYY-MM-DD or YYYY/MM/DD."
+                "❌ تاریخ ابهام دارد. لطفا از - یا / بین اجزای تاریخ اسفاده کنید."
             )
     elif len(month_day) == 2:  # MD
         month = int(month_day[0])
         day = int(month_day[1])
     else:
-        raise ValueError("❌ Invalid date format.")
+        raise ValueError("❌ فرمت معتبر نیست.")
 
     return month, day
 
@@ -246,13 +254,13 @@ def parse_time(time_str: str) -> dt:
                     hours, minutes = map(int, time_str.split(s))
                     is_digit = "N"
                 except ValueError:
-                    raise ValueError(f"❌ Invalid time format: {time_str}")
+                    raise ValueError("❌ فرمت معتبر نیست.")
                 break
         else:
             is_digit = "T" if time_str.isdigit() else "F"
 
         if is_digit == "F" or (is_digit == "T" and len(time_str) > 5):
-            raise ValueError(f"❌ Invalid time format: {time_str}")
+            raise ValueError("❌ فرمت معتبر نیست.")
         elif is_digit == "T":
             hours, minutes = parse_hour_minute(time_str)
 
@@ -266,7 +274,7 @@ def parse_time(time_str: str) -> dt:
             return dt_object
         return dt.now(tehran_tz).replace(hour=hours, minute=minutes)
     else:
-        raise ValueError(f"❌ Invalid time format: {time_str}")
+        raise ValueError("❌ فرمت معتبر نیست.")
 
 
 def is_relative_time(time_str):
@@ -292,7 +300,7 @@ def parse_relative_time(s: str):
         target = now + delta
         return target
     else:
-        raise ValueError(f"❌ Invalid time format: {s}")
+        raise ValueError("❌ فرمت معتبر نیست.")
 
 
 def parse_hour_minute(time_str: str):
@@ -315,12 +323,12 @@ def parse_hour_minute(time_str: str):
             hour, minute = h1, m1
         else:
             raise ValueError(
-                f"❌ Ambiguous time. Please use a ':' separator (e.g., 12:35)."
+                "❌ ساعت ابهام دارد. لطفا از : بین اجزای تاریخ اسفاده کنید."
             )
     elif 0 <= int(time_str) <= 24:
         hour, minute = int(time_str), 0
     else:
-        raise ValueError(f"❌ Invalid time format: {time_str}")
+        raise ValueError("❌ فرمت معتبر نیست.")
     return hour, minute
 
 

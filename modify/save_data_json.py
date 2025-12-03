@@ -33,7 +33,7 @@ coin_dict = {
 
 # --- Configure logger ---
 logging.basicConfig(
-    filename="scraper.log",  # log file name
+    filename="../scraper.log",  # log file name
     level=logging.INFO,  # log level
     format="%(asctime)s - %(levelname)s - %(message)s",
     encoding="utf-8",  # ensure Persian text logs correctly
