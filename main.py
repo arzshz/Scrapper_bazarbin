@@ -1,8 +1,10 @@
 from datetime import datetime as dt
+from datetime import timedelta, timezone
 
 import jdatetime
 import pytz
 import telebot
+from pymongo import ASCENDING, MongoClient
 from telebot import types
 
 from get_text_from_db import get_text
@@ -11,14 +13,13 @@ from parsers import parse_date_and_time, tehran_tz, english_to_persian
 from secret import *
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-
-from datetime import timedelta, timezone
-from pymongo import ASCENDING, MongoClient
-
 mongo_client = MongoClient("mongodb://localhost:27017/")
 db = mongo_client["bazarbin_data"]
 collection = db["prices"]
 
+import users_manager
+
+users_manager.install(bot, bot_name="scrapper_bazarbin")  # telegram bots
 
 # ===== TELEGRAM BOT HANDLERS =====
 @bot.message_handler(commands=["start"])
