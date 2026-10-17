@@ -203,26 +203,32 @@ def parse_date_and_time(input_str: str) -> datetime.datetime:
     return result
 
 
-def is_time(s: str) -> bool:
-    # must not contain any other alphabetic characters
-    for ch in s:
-        if ch.isalpha() and ch not in ("h", "m"):
-            return False
-
-    parts = s.split()
-    if len(parts) == 1 and ("h" in parts[0] or "m" in parts[0]):
-        return True
-    elif len(parts) == 2 and ("h" in parts[0] or "m" in parts[0]):
-        return True
-
-    if ":" in s and len(s.strip()) < 6:
-        try:
-            hours, minutes = map(int, s.split(":"))
+def is_time(input_str: str) -> bool:
+    count_sep_1 = get_count_as_input(input_str, " ")
+    count_sep_2 = get_count_as_input(input_str, ":")
+    if (count_sep_1 < 1 and count_sep_2 < 2) or (count_sep_1 < 2 and count_sep_2 < 1):
+        formatted_str = input_str.replace(" ", "").replace(":", "")
+        if formatted_str.isdigit() and len(formatted_str) < 5:
             return True
-        except ValueError:
+
+    # check for containing other symbols
+    for ch in input_str:
+        if not ch.isalnum() and ch not in ["-", "+"]:
             return False
 
-    if len(s.replace(" ", "").strip()) < 5 and s.replace(" ", "").isdigit():
+    # must not contain any other alphabetic characters
+    for ch in input_str:
+        if ch.isalpha() and ch.lower() not in ("h", "m"):
+            return False
+
+    input_str = (
+        input_str.replace(" ", "")
+        .replace("h", "")
+        .replace("m", "")
+        .replace("+", "")
+        .replace("-", "")
+    )
+    if input_str.isdigit():
         return True
     return False
 
@@ -301,6 +307,14 @@ def parse_relative_time(s: str):
         return target
     else:
         raise ValueError("❌ فرمت معتبر نیست.")
+
+
+def get_count_as_input(input_str, sep):
+    count = 0
+    for ch in input_str:
+        if ch == sep:
+            count += 1
+    return count
 
 
 def parse_hour_minute(time_str: str):
